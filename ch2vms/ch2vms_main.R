@@ -3,6 +3,10 @@
 #To Do
 #Expand tow footprints to get a sense of overall effort rather than set/up points
 #Remove points with only 
+
+
+#Calculate skew of catch distributions
+
 #NE ALSO
 #Temporal Distribution of effort different before and after?
 #Wher and how are they catching species in certain areas?
@@ -20,27 +24,308 @@ library(plyr)
 library(dplyr)
 library(lubridate)
 library(reshape2)
+library(devtools)
 
 #Start
-setwd("/Users/peterkuriyama/School/Research/ch2_vms")
+setwd("/Users/peterkuriyama/School/Research/ch2vms")
 
-source('R/start_up.r')
+#Load package
+load_all()
 
-source("R/load_ne_vms.R")
-source("R/load_wc_logbook.R")
-source("R/load_wc_logbook.R")
+#--------------------------------------------------------------------------------
+#Modify wc data to incorporate delta things, clustering, rjinsdorp things
+
+#Gillis and Rjinsdorp 
+wc_data <- load_wc_logbook()
+wc_data <- wc_data[-grep("\\.", row.names(wc_data)), ]
+
+#Remove certain columns
+wc_data <- wc_data %>% select(-c(rpcid, dpcid, spid, dday, dmonth, dyear, dport, rday, rmonth, ryear,
+  bimon_period, rport, area, arid_psmfc, block, msec_lat, msec_long, up_msec_lat, up_msec_long,
+  apounds_calculated, apounds_wdfw, ft_match_flag, ftid2, ftid3, ftid4, ftid5, gr_endor_1,
+  gr_endor_2, gr_endor_3, gr_endor_4, gr_endor_5, sable_tier_1, sable_tier_2, sable_tier_3,
+  sable_tier_4, sable_tier_5, len_endor_3, len_endor_4, len_endor_5, avglat, avglong, avglat.gis,
+  group.north, group.south, gf, ns, rebuilding, up_date, set_date_full, up_date_full, duration_hour,
+  set_lat_r, set_long_r, up_lat_r, up_long_r, dist_slc_km, dist_hf_km, dist_slc_mi, lat, long,
+  permid_2, permid_3, permid_4, permid_5, gr_sector, agid)) 
+
+#Calculate percentage compositions for each tow
+wc_data %>% group_by(haul_id) %>% mutate(tow_hpounds = sum(hpounds, na.rm = TRUE), 
+    tow_apounds = sum(apounds, na.rm = TRUE),
+    tow_hperc = hpounds / tow_hpounds, tow_aperc = apounds / tow_apounds, 
+    tow_diff = tow_aperc - tow_hperc) %>% as.data.frame %>% 
+select(-c(tow_hpounds, tow_apounds)) -> wc_data
+
+#Calculate percentage compositions for each trip?
 
 
-#Load all the data types
-#Northeast VMS Data
-ne_vms <- load_ne_vms()
 
-#Logbook data with expanded tows
-wc_data <- load_wc_logbook() #Expanded tows
+#Create data frame with unique tows
+unq_hauls <- unique(wc_data$haul_id)
+unq_hauls <- data.frame(unq_hauls)
+names(unq_hauls) <- 'haul_id'
+unq_hauls$haul_id <- as.character(unq_hauls$haul_id)
 
-#Logbook data with unique tows
-wc_unique_tows <- wc_data[-grep("\\.", rownames(wc_data)), ]
+to_add <- wc_data %>% filter(species == 'Dover Sole') %>% select(haul_id, tow_hperc, tow_aperc,
+  duration, set_lat, set_long, up_lat, up_long, depth1, hpounds, apounds, tow_day,
+  tow_month, tow_year)
 
+hauls <- left_join(unq_hauls, to_add, by = 'haul_id')
+names(hauls)[c(2, 3)] <- c('dover_hperc', 'dover_aperc')
+
+#Fill in NAs with 0
+hauls[which(is.na(hauls[, 2])), 2] <- 0
+hauls[which(is.na(hauls[, 3])), 3] <- 0
+
+#Add in other species
+second_add <- wc_data %>% filter(species == 'Sablefish') %>% select(haul_id, tow_hperc, 
+  tow_aperc)
+
+
+hauls
+
+
+#Compare two species
+#Dover sole and
+
+
+
+
+#how to filter for two species, to look at specific changes in compositions
+#Effect of depth
+
+
+wc_data %>% filter(species == "Dover Sole") %>% group_by(up_long) %>% 
+  summarize(avg_perc = mean(tow_hperc, na.rm = TRUE), nvals = length(tow_hperc)) %>% 
+  ggplot() + geom_point(aes(x = up_long, y = avg_perc, size = nvals))
+
+wc_data %>% filter(species == 'Dover Sole' | species == 'Sablefish') 
+
+
+
+
+wc_data %>% filter(species == 'Dover Sole') %>% ggplot() + 
+  geom_histogram(aes(tow_aperc)) + facet_wrap(~ rport_desc)
+
+#Delta
+
+
+
+
+
+
+
+
+
+catch_comps %>% filter(species == 'Dover Sole') %>% ggplot() + geom_histogram(aes(tow_hperc))
+
+geom_bar(stat = 'identity',
+  aes(x = factor(species), y = tow_hperc))
+
+
+geom_hist(
+
+  stat = 'identity', aes(x = factor(species), y = clust_hperc)) +
+     facet_grid(~ clust) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+ggplot(catch_comps )
+
+
+
+
+ggplot()
+
+
+
+
+
+
+#Look at a single vessel
+one_vess <- subset(wc_data, drvid == '578282')
+
+#Most caught species
+one_vess %>% group_by(species) %>% summarize(tot_hpounds = sum(hpounds, na.rm = TRUE),
+  tot_apounds = sum(apounds, na.rm = TRUE)) %>% arrange(desc(tot_apounds))
+
+#What else did tows that caught Dover catch?
+dover_hauls <- one_vess %>% filter(species == 'Dover Sole') %>% distinct(haul_id) 
+
+#Filter out only dover hauls and see what else was caught
+dover_hauls <- one_vess[one_vess$haul_id %in% dover_hauls$haul_id, ]
+dover_hauls %>% group_by(haul_id) %>% mutate
+
+dover_hauls %>% group_by(species) %>% summarize(tot_hpounds = sum(hpounds, na.rm = TRUE),
+  tot_apounds = sum(apounds, na.rm = TRUE)) %>% arrange(desc(tot_apounds))
+
+
+one_vess %>% group_by()
+
+
+one_vess %>% filter(haul_id %in% dover_hauls)
+
+
+
+unique(one_vess$species)
+
+
+
+#Add midpoint of each tow to 
+
+#Filter data to keep relevant columns
+
+#Look only
+
+
+#Remove expanded tows
+
+
+
+
+#--------------------------------------------------------------------------------
+#Merge VMS data to include declarations
+# load("data/ne_vms_wdeclarations.Rdata")
+# ne_vms_dec <- ne.vms
+# rm(ne.vms)
+# names(ne_vms_dec) <- tolower(names(ne_vms_dec))
+
+# #Remove values that don't have the same number of characters
+# ne_vms_dec <- ne_vms_dec[-which(nchar(ne_vms_dec$declarations) != 14), ]
+
+# #Parse out the Northeast VMS Descriptions
+# descs <- ldply(strsplit(ne_vms_dec$declarations, "-"))
+# names(descs)[1:2] <- c("plan", "program")
+# descs$area <- substr(descs[, 3], 1, 2)
+# descs$daysatsea <- substr(descs[, 3], 3, 3)
+# descs$gear <- substr(descs[, 3], 4, 4)
+# descs$trip_mod <- substr(descs[, 3], 5, 5)
+# descs$stock_area <- substr(descs[, 3], 6, 6)
+# descs$plan <- NULL
+# descs$V3 <- NULL
+
+# ne_vms_dec <- cbind(ne_vms_dec, descs)
+
+#Format ne_vms data with declarations
+# to_add <- ldply(strsplit(ne_vms_dec$filename_short, "_"))
+# names(to_add) <- c('year', 'month', 'region')
+
+# to_add$year <- substr(to_add$year, 6, 10)
+# to_add$year <- as.integer(to_add$year)
+# to_add$month <- as.numeric(to_add$month)
+
+# ne_vms_dec <- cbind(ne_vms_dec, to_add)
+# ne_vms_dec$unq <- paste(ne_vms_dec$year, ne_vms_dec$month, ne_vms_dec$region,
+#   ne_vms_dec$latitude, ne_vms_dec$longitude)
+
+#Format the NE VMS data with speeds
+load('data/ne_vms.Rdata')
+ne_vms$latitude <- gsub("\302", "", ne_vms$latitude)
+ne_vms$longitude <- gsub("\302", "", ne_vms$longitude)
+ne_vms <- ne_vms %>% filter(year >= 2009)
+ne_vms$speed <- as.numeric(ne_vms$speed)
+
+
+
+#Look at gillnet point locations over years
+years <- 2009:2014
+
+for(yr in years){
+  filename <- 'figs/gillnet'
+  filename <- paste0(filename, yr)
+  filename <- paste0(filename, '.png')
+
+  png(width = 14.57, height = 12.13, file = filename, res = 200, units = 'in')
+
+  ne_vms %>% filter(year == yr & region == 'G') -> test
+
+  #Remove the outlier speeds
+  test %>% filter(speed < 20) -> test
+
+  #Plot everything
+  zz <- wc_map + geom_point(data = test, aes(x =  lon, y = lat, colour = speed)) + 
+          scale_x_continuous(limits = c(-71.2, -68.5)) + 
+          scale_y_continuous(limits = c(40, 44)) + facet_wrap(~ month)
+  print(zz)
+
+  dev.off()
+
+  print(yr)
+}
+
+# Look at gillnet points across month in each year
+months <- 1:12
+
+for(mt in months){
+  filename <- 'figs/gillnet'
+  filename <- paste0(filename, mt)
+  filename <- paste0(filename, '.png')
+
+  png(width = 14.57, height = 12.13, file = filename, res = 200, units = 'in')
+
+  ne_vms %>% filter(month == mt & region == 'G') -> test
+
+  #Remove the outlier speeds
+  test %>% filter(speed < 20) -> test
+
+  #Plot everything
+  zz <- wc_map + geom_point(data = test, aes(x =  lon, y = lat, colour = speed)) + 
+          scale_x_continuous(limits = c(-71.2, -68.5)) + 
+          scale_y_continuous(limits = c(40, 44)) + facet_wrap(~ year)
+  print(zz)
+
+  dev.off()
+
+  print(mt)
+}
+
+
+#Bin 
+source("R/bin_data.R")
+
+#only the zeroes bro
+zeroes <- ne_vms %>% filter(speed == 0 & region == 'G')
+zero_bin <- bin_data(zeroes, x_col = 'lon', y_col = 'lat')
+
+#Incorporate distance from port also?
+
+wc_map + scale_x_continuous(limits = c(-71, -66)) + scale_y_continuous(limits = c(41, 42.7)) + 
+  geom_tile(data = zero_bin, aes(x = x, y = y, fill = count)) + 
+  scale_fill_gradient2(low = 'blue', high = 'red') + facet_wrap(~ year)
+
+
+#Cluster the tows by speed and location, aggregat
+#Locations of ports?
+
+
+
+
+
+
+
+#Filter out gillnet rows
+# ne_vms <- ne_vms[grep("_WH.csv", ne_vms$filename), ]
+
+
+# rm(to_add)
+# ne_vms_dec <- ne_vms_dec %>% select(latitude, longitude, 
+#     declarations, filename_short, year, month, region)
+
+ne_vms_dec %>% filter(year >= 2009) -> ne_vms_dec
+
+#Add in a column of unique values to compare the two datasets
+ne_vms$unq <- paste(ne_vms$year, ne_vms$month, ne_vms$region, ne_vms$latitude, 
+  ne_vms$longitude)
+
+ne_vms_dec$unq <- paste(ne_vms_dec$year, ne_vms_dec$month, ne_vms_dec$region, 
+  ne_vms_dec$latitude, ne_vms_dec$longitude)
+
+#Filter out gillnet tows from each
+# ne_vms %>% filter(region != "G") -> ne_vms
+# ne_vms_dec %>% filter(region != 'G') -> ne_vms_dec
+
+
+#--------------------------------------------------------------------------------
+#SPATIAL ANALYSES
 
 #Load Map
 world_map <- map_data("world")
@@ -49,47 +334,63 @@ wc_map <- ggplot() + geom_map(data = world_map, map = world_map, aes(x = long, y
     map_id = region), fill = 'gray') + 
     geom_polygon(data = world_map, aes(x = long, y = lat, group = group), fill = NA, color = 'gray')
 
+# wc_map + scale_x_continuous(limits = c(-77, -62)) + scale_y_continuous(limits = c(34, 46.5))
+
+#--------------------------------------------------------------------------------
+#Spatially Analyze Northeast VMS Data
+
+#Northeast VMS Data
+ne_vms <- load_ne_vms()
+
+#Assign speed categories to ne_vms
+ne_vms$category <- 'nada'
+ne_vms$speed <- as.numeric(ne_vms$speed)
+
+ne_vms[which(ne_vms$speed < 2), 'category'] <- 'stopped - <2knots' 
+ne_vms[which(ne_vms$speed >= 2 & ne_vms$speed < 6), 'category'] <- 'fishing - between 2 and 6 knots' 
+ne_vms[which(ne_vms$speed >= 6 & ne_vms$speed <= 10), 'category'] <- 'steaming - between 6 and 10 knots' 
+ne_vms[which(ne_vms$speed > 10), 'category'] <- 'errors - greater than 10 knots' 
+
+#Look at month of data
+ne_vms %>% filter(year == 2009 & month == 2 & region == 'WH') -> one_month
+unique(one_month$category)
+
+png(width = 12, height = 9.15, units = 'in', res = 200, file = 'figs/speed_cats_ne.png')
+wc_map + geom_point(data = one_month, aes(x = lon, y = lat)) + 
+  scale_x_continuous(limits = c(-73, -68)) + 
+  scale_y_continuous(limits = c(40, 43.9)) + facet_wrap(~ category)
+dev.off()
+
+#Try binning one month
+binned <- bin_data(one_month)
+
+#Back calculate
 
 
 
+#Function to identify rows assigned to specific grids
+
+found <- vector('list', length = nrow(binned))
+
+for(ii in 1:length(found)){
+  if(ii %% 100 == 0) print(ii)
+  temp <- binned[ii, ]
+
+  find_these <- which(-wc_data_orig$long <= temp$xmax & -wc_data_orig$long >= temp$xmin &
+    wc_data_orig$lat <= temp$ymax & wc_data_orig$lat >= temp$ymin & 
+    wc_data_orig$tow_year == temp$year) 
+
+  ifelse(length(find_these) == temp$count, found[[ii]] <- find_these, stop(print(ii)))
+
+}
 
 
 
-
-#Can use translate latitudes and longitudes
-
-#Check which years have speeds and how many of them they have
-ne_vms %>% group_by(year) %>% summarise(have_speed = sum(is.na(speed) == FALSE))
-
-
-#Bin these into two dimensions BY YEAR
-bin <- ggplot(temp_vms, aes(x = trans_lon, y = trans_lat, 
-  group = year)) + stat_bin2d(binwidth = c(0.0909, 0.11))
-binned <- ggplot_build(bin)$data[[1]]
-
-#Add column for each unique site
-binned$unq <- paste(binned$xbin, binned$ybin)
-
-#Look at site-specific trends, to see which ones had highs and lows
-binned %>% group_by(unq) %>% mutate(min_ct = min(count), max_ct = max(count), diff_ct = max_ct - min_ct) %>%
-  as.data.frame -> binned
-
-#Add in years to 
-yrz <- data.frame(year = unique(ne_vms$year), group = 1:length(unique(ne_vms$year)))
-binned <- inner_join(binned, yrz, by = 'group')
-
-wc_map + scale_x_continuous(limits = c(-77, -62)) + scale_y_continuous(limits = c(34, 46.5))
-
-#----------------------------------------------------------------------------------------------------
-#Look at Sites that have had the greatest change in number of tows
 
 #Areas that have diffs greater than 1000
 really_high <- subset(binned, diff_ct >= 1000)
 
 #Find Year of maximum tows
-
-really_high %>% arrange(year) %>% head
-
 really_high %>% group_by(unq) %>% arrange(year) %>% 
   mutate(max_year = year[which(count == max_ct)]) %>% 
   as.data.frame -> really_high
@@ -123,6 +424,18 @@ wc_map + scale_x_continuous(limits = c(-71, -66)) + scale_y_continuous(limits = 
   scale_fill_gradient2(low = 'blue', high = 'red') + facet_grid(~ year)
 dev.off()
 
+
+
+#--------------------------------------------------------------------------------
+#Logbook data with expanded tows
+wc_data <- load_wc_logbook() #Expanded tows
+
+#Logbook data with unique tows
+wc_unique_tows <- wc_data[-grep("\\.", rownames(wc_data)), ]
+
+
+#----------------------------------------------------------------------------------------------------
+#Look at Sites that have had the greatest change in number of tows
 
 
 #----------------------------------------------------------------------------------------------------
@@ -1593,3 +1906,104 @@ ne_vms %>%
 # # data.frame('species' = check$species, 'ifq_catch' = check$tot_bal, 'bal_catch' = catch14$catch)
 
 # # length(unique(vess14$vessel))
+
+
+
+# #--------------------------------------------------------------------------------
+
+# #Try this for january, 2009 only
+# ne_vms %>% filter(year == 2009 & month == 1 & region == "WH") -> test
+# ne_vms_dec %>% filter(year == 2009 & month == 1 & region == "WH") -> test_dec
+
+# #For each unique value, find the average speed, number of things by gear type
+# test %>% group_by(unq) %>% summarize(nvals = length(latitude), mean_speed = mean(speed, na.rm = TRUE),
+#   speed_0 = quantile(speed, na.rm = TRUE)[1],
+#   speed_25 = quantile(speed, na.rm = TRUE)[2], 
+#   speed_50 = quantile(speed, na.rm = TRUE)[3], 
+#   speed_75 = quantile(speed, na.rm = TRUE)[4], 
+#   speed_100 = quantile(speed, na.rm = TRUE)[5]) -> test_speeds
+# test_speeds %>% as.data.frame %>% arrange(desc(nvals)) -> test_speeds
+
+# #Find the ports for some of the highest locations
+
+
+# most_unq <- head(test_speeds$unq, n = 30)
+
+
+
+
+# head(test_speeds, n = 30)
+
+
+# #Look at maximum
+# focus_ind <- which(test_speeds$nvals == max(test_speeds$nvals))
+# test_speeds[focus_ind, ]
+
+# test %>% filter(unq == test_speeds[focus_ind, 'unq']) -> ttspeeds
+
+# test_dec %>% filter(unq == test_speeds[focus_ind, 'unq']) -> ttdecs
+
+# test$dec$unq == 
+
+# head(test_dec)
+
+
+
+
+# #Try looking at which rows will merge, look for duplicates
+# # test$unq <- paste(test$year, test$month, test$region, test$latitude, test$longitude)
+# # test_dec$unq <- paste(test_dec$year, test_dec$month, test_dec$region, 
+# #   test_dec$latitude, test_dec$longitude)
+
+# #Find unique values 
+
+
+
+# unique(test$unq)[1]
+
+# test_dec %>% filter(unq == unique(test$unq)[1]) -> tt1
+# test %>% filter(unq == unique(test$unq)[1]) -> tt2
+
+# #Certain spots will have similar speeds
+
+
+# test %>% group_by(unq) %>% summarize(nvals = length(unq))
+
+
+
+# test_dec %>% filter(unq == test$unq[1])
+
+
+# test_dec %>% group_by(unq) %>% summarize(nvals = length(unique))
+
+
+# subset(test, unq == test$unq[1]) %>% dim
+# tt <- subset(test_dec, unq == test$unq[1]) 
+
+
+
+# unique(tt$declarations)
+
+
+
+
+# there <- which(test$unq %in% test_dec$unq)
+# not_there <- which(test$unq %in% test_dec$unq == FALSE)
+
+# merged <- left_join(test, test_dec, by = c('unq'))
+# test
+
+
+
+# merged_test <- left_join(test, test_dec, by = c('latitude', 'longitude',
+#   'year', 'month', 'region'))
+
+# not_merged_test <- anti_join(test, test_dec, by = c('latitude', 'longitude',
+#   'year', 'month', 'region'))
+
+
+# merged_test <- inner_join(test, test_dec, by = c('latitude', 'longitude',
+#   'year', 'month', 'region'))
+
+# merged <- inner_join(ne_vms, ne_vms_dec, by = c('latitude', 'longitude',
+#   'year', 'month', 'region'))
