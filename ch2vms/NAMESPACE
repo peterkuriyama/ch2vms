@@ -2,6 +2,7 @@
 
 export(bin_data)
 export(calc_delta_plot)
+export(calc_skew)
 export(compare_two_spp)
 export(load_ne_vms)
 export(load_wc_logbook)
