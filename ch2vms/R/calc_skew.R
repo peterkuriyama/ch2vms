@@ -10,7 +10,7 @@
 
 calc_skew <- function(input){
   #Remove NAs
-  
+# browser()  
   nn <- length(input)
   
   xhat <- mean(input)

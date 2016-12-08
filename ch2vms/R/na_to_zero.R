@@ -10,8 +10,8 @@
 
 
 na_to_zero <- function(vector_in){
-  
-  vector_in[which(is.na(vector_in))] <- 0
+# browser()  
+  vector_in[which(is.na(vector_in)), 1] <- 0
   vector_out <- vector_in
   return(vector_out)  
 }

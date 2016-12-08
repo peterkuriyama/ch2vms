@@ -12,9 +12,6 @@
 #' compare_two_spp(data = wc_data, species1 = "Dover Sole", species2 = "Sablefish", focus = 'hperc')
 
 
-#Possible things to look at
-#hperc, aperc, hpounds, apounds
-
 compare_two_spp <- function(data = wc_data, species1, species2, focus = 'hperc'){
 
   #Create data frame with unique tows
