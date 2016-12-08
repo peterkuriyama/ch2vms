@@ -4,8 +4,9 @@
 #Expand tow footprints to get a sense of overall effort rather than set/up points
 #Remove points with only 
 
-
+#Explore correlations between two species
 #Calculate skew of catch distributions
+#Zero 
 
 #NE ALSO
 #Temporal Distribution of effort different before and after?
@@ -30,14 +31,43 @@ library(devtools)
 setwd("/Users/peterkuriyama/School/Research/ch2vms")
 
 #Load package
-load_all()
+install_github("peterkuriyama/ch2vms/ch2vms")
+library(ch2vms)
+
+# load_all()
+
+#--------------------------------------------------------------------------------
+#Load West Coast Logbook Data
+wc_data <- load_wc_logbook()
+wc_data <- wc_data[-grep("\\.", row.names(wc_data)), ]
+
+#--------------------------------------------------------------------------------
+#Delta plots for subset of species, specified by Gillis et al. (2008)
+wc_data %>% group_by(species) %>% summarize(apounds = sum(apounds, na.rm = TRUE)) %>%
+  arrange(desc(apounds)) %>% head(n = 30) %>% as.data.frame
+
+spps <- c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
+  'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
+  'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish' )
+
+wc_data %>% filter(species %in% spps) -> of_int_data
+
+#Calculate delta plots of distributions
+delta_plots <- of_int_data %>% 
+  group_by(species, tow_year) %>% 
+  do(data.frame(prop_zero = calc_delta_plot(data = ., spp = unique(.[, 'species']))[1],
+    skew = calc_delta_plot(data = ., spp = unique(.[, 'species']))[2])) %>%
+  as.data.frame 
+
+ggplot(delta_plots) + geom_point(aes(x = prop_zero, y = skew, colour = species)) + 
+  facet_wrap(~ tow_year)
+
 
 #--------------------------------------------------------------------------------
 #Modify wc data to incorporate delta things, clustering, rjinsdorp things
 
 #Gillis and Rjinsdorp 
-wc_data <- load_wc_logbook()
-wc_data <- wc_data[-grep("\\.", row.names(wc_data)), ]
+
 
 #Remove certain columns
 wc_data <- wc_data %>% select(-c(rpcid, dpcid, spid, dday, dmonth, dyear, dport, rday, rmonth, ryear,
