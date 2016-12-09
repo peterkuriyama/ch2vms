@@ -52,16 +52,31 @@ spps <- c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Lon
 
 wc_data %>% filter(species %in% spps) -> of_int_data
 
-#Calculate delta plots of distributions
+##Use hpounds only
+#hpounds of all data
 delta_plots <- of_int_data %>% 
   group_by(species, tow_year) %>% 
-  do(data.frame(prop_zero = calc_delta_plot(data = ., spp = unique(.[, 'species']))[1],
-    skew = calc_delta_plot(data = ., spp = unique(.[, 'species']))[2])) %>%
+  do(data.frame(prop_zero = calc_delta_plot(data = ., spp = unique(.[, 'species']), focus = 'hpound')[1],
+    skew = calc_delta_plot(data = ., spp = unique(.[, 'species']), focus = 'hpound')[2])) %>%
   as.data.frame 
 
-ggplot(delta_plots) + geom_point(aes(x = prop_zero, y = skew, colour = species)) + 
-  facet_wrap(~ tow_year)
+ss <- unique(delta_plots$species)
+abbrevs <- lapply(strsplit(ss, " "), function(x) sapply(x, FUN = function(y) paste0(substr(y, 1, 1), collapse = '')))
 
+ss_names <- ldply(lapply(abbrevs, FUN = function(x) paste0(x, collapse = '')))
+ss_names <- data.frame(species = ss, abbrev = ss_names[, 1])
+ss_names$species <- as.character(ss_names$species)
+ss_names$abbrev <- as.character(ss_names$abbrev)
+ss_names$short <- c("Arr", 'Bnk', 'Chl', 'Drk', 'Dvr', 'Lng', 'Lon', 
+  'POP', 'Pet', 'Sbl', 'Shr', 'Wid', 'Ylt')
+
+dps <- left_join(delta_plots, ss_names, by = 'species')
+
+#Plot
+ggplot(dps) + geom_text(aes(x = prop_zero, y = skew, label = short)) + 
+  facet_wrap(~ tow_year) + 
+
+#Test of significance from Gillis 2008? 
 
 #--------------------------------------------------------------------------------
 #Modify wc data to incorporate delta things, clustering, rjinsdorp things
