@@ -5,14 +5,10 @@
 \title{Summarize Clusters
 Function to summarize clusters, given a certain cut_point}
 \usage{
-summ_clust(dat, clust_input, cut_point)
+summ_clust(dat)
 }
 \arguments{
-\item{dat}{Original data that was clustered}
-
-\item{clust_input}{Output from clust_tows function}
-
-\item{cut_point}{Cut point}
+\item{dat}{Data with column for clusters}
 }
 \description{
 Summarize Clusters
