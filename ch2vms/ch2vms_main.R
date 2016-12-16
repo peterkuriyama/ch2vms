@@ -43,46 +43,96 @@ wc_data <- wc_data[-grep("\\.", row.names(wc_data)), ]
 
 #--------------------------------------------------------------------------------
 #Delta plots for subset of species, specified by Gillis et al. (2008)
-wc_data %>% group_by(species) %>% summarize(apounds = sum(apounds, na.rm = TRUE)) %>%
-  arrange(desc(apounds)) %>% head(n = 30) %>% as.data.frame
-
-spps <- c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
-  'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
-  'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish' )
-
-wc_data %>% filter(species %in% spps) -> of_int_data
-
-##Use hpounds only
-#hpounds of all data
-delta_plots <- of_int_data %>% 
-  group_by(species, tow_year) %>% 
-  do(data.frame(prop_zero = calc_delta_plot(data = ., spp = unique(.[, 'species']), focus = 'hpound')[1],
-    skew = calc_delta_plot(data = ., spp = unique(.[, 'species']), focus = 'hpound')[2])) %>%
-  as.data.frame 
-
-ss <- unique(delta_plots$species)
-abbrevs <- lapply(strsplit(ss, " "), function(x) sapply(x, FUN = function(y) paste0(substr(y, 1, 1), collapse = '')))
-
-ss_names <- ldply(lapply(abbrevs, FUN = function(x) paste0(x, collapse = '')))
-ss_names <- data.frame(species = ss, abbrev = ss_names[, 1])
-ss_names$species <- as.character(ss_names$species)
-ss_names$abbrev <- as.character(ss_names$abbrev)
-ss_names$short <- c("Arr", 'Bnk', 'Chl', 'Drk', 'Dvr', 'Lng', 'Lon', 
-  'POP', 'Pet', 'Sbl', 'Shr', 'Wid', 'Ylt')
-
-dps <- left_join(delta_plots, ss_names, by = 'species')
-
-#Plot
-ggplot(dps) + geom_text(aes(x = prop_zero, y = skew, label = short)) + 
-  facet_wrap(~ tow_year) + 
+delta_plot()
 
 #Test of significance from Gillis 2008? 
+
+#--------------------------------------------------------------------------------
+#Cluster the Data
+
+
+
+
+#These things only done once, take a little bit of time
+dat <- wc_data %>% filter(dyear == 2011 & dport_desc == "ASTORIA" & ha_ratio >= 0.6 &
+  ha_ratio <= 1.1)
+dat <- arrange_tows(dat = dat)
+xx <- clust_tows(dat = dat)
+
+#Trevor calculations
+#median trawl in fishery (km) converted to degrees
+#sqrt(2) * d
+
+#mean distance between successive starting positions, may be better estimate?
+calc_cut <- sqrt(2) * (median(dat$dist_slc_km) * 360) / 40075
+
+#Try different cut points
+temp <- summ_clust(dat = dat, clust_input = xx, cut_point = calc_cut)
+
+# 
+temp %>% group_by(clust) %>% mutate(ntows = length(unique(haul_id))) %>% 
+  arrange(desc(ntows)) %>% as.data.frame -> temp
+
+#Filter by cluster percentages for certain species
+temp$perc_cat <- '999'
+temp[temp$clust_spp_hperc >= 0.5, 'perc_cat'] <- 'high'
+temp[temp$clust_spp_hperc < 0.5, 'perc_cat'] <- 'low'
+
+#Plot the clusters that have more than 10 
+temp %>% filter(ntows >= 10 ) %>% ggplot + geom_segment(aes(x = -set_long, xend = -up_long, 
+  y = set_lat, yend = up_lat, colour = clust),  arrow = arrow(length = unit(0.1, 'cm'))) + 
+  facet_wrap(~ perc_cat)
+
+#--------------------------------------------------------------------------------
+#Old version of clustering
+
+#Calculate percentage compositions for each tow
+wc_data %>% group_by(haul_id) %>% mutate(tow_hpounds = sum(hpounds, na.rm = TRUE), 
+    tow_apounds = sum(apounds, na.rm = TRUE),
+    tow_hperc = hpounds / tow_hpounds, tow_aperc = apounds / tow_apounds, 
+    tow_diff = tow_aperc - tow_hperc) %>% as.data.frame %>% 
+select(-c(tow_hpounds, tow_apounds)) -> wc_data
+
+#Select only part of the WC data
+part_wc_data <- wc_data %>% select(trip_id, ddate, agid, rdate, drvid, dyear, townum,
+  set_lat, set_long, up_lat, up_long, depth1, target, tow_hperc, tow_aperc, species, rport_desc,
+  dport_desc, d_portgrp, arid_psmfc, duration, net_type, hpounds, 
+  apounds)
+
+#Filter out unique tows also for part_wc_data
+part_wc_data %>% group_by(trip_id, townum) %>% filter(row_number(townum) == 1) %>%
+  as.data.frame -> part_wc_data
+
+length(which(part_wc_data$rport_desc != part_wc_data$dport_desc)) / nrow(part_wc_data)
+#3% of tows departed and returned at different ports
+
+#Transform longitudes to latitude space
+part_wc_data$trans_set_long <- part_wc_data$set_long * cos((2 * pi * part_wc_data$set_lat) / 360)
+part_wc_data$trans_up_long <- part_wc_data$up_long * cos((2 * pi * part_wc_data$up_lat) / 360)
+
+
+
+
+
+
+
+
+
+#--------------------------------------------------------------------------------
+#Look at distance from port for each trip and tow...
+#Number of tows per trip
+
+
+
+
+
 
 #--------------------------------------------------------------------------------
 #Modify wc data to incorporate delta things, clustering, rjinsdorp things
 
 #Gillis and Rjinsdorp 
 
+#Bin the data then unbin it to calculate spatiall bycatch maps
 
 #Remove certain columns
 wc_data <- wc_data %>% select(-c(rpcid, dpcid, spid, dday, dmonth, dyear, dport, rday, rmonth, ryear,
@@ -94,14 +144,74 @@ wc_data <- wc_data %>% select(-c(rpcid, dpcid, spid, dday, dmonth, dyear, dport,
   set_lat_r, set_long_r, up_lat_r, up_long_r, dist_slc_km, dist_hf_km, dist_slc_mi, lat, long,
   permid_2, permid_3, permid_4, permid_5, gr_sector, agid)) 
 
-#Calculate percentage compositions for each tow
-wc_data %>% group_by(haul_id) %>% mutate(tow_hpounds = sum(hpounds, na.rm = TRUE), 
-    tow_apounds = sum(apounds, na.rm = TRUE),
-    tow_hperc = hpounds / tow_hpounds, tow_aperc = apounds / tow_apounds, 
-    tow_diff = tow_aperc - tow_hperc) %>% as.data.frame %>% 
-select(-c(tow_hpounds, tow_apounds)) -> wc_data
+
+
+#Calculate midpoint for each tow
+wc_data <- wc_data %>% group_by(haul_id) %>% mutate(mid_lat = (set_lat + up_lat) / 2,
+  mid_long = (set_long + up_long) / 2) %>% as.data.frame
+
+#Plot dovers
+wc_data %>% filter(species == 'Dover Sole') %>% ggplot() + 
+  geom_point(aes(x = -mid_long, y = mid_lat, colour = tow_hperc)) + facet_wrap(~ tow_year)
+
+
+
+
+
+
+#Remove duplicate tows
+wc_data_props <- wc_data %>% select(haul_id, species, tow_hperc)
+wc_data_props <- wc_data_props[-which(duplicated(wc_data_props)), ]
+wc_data_props[is.na(wc_data_props$tow_hperc), 'tow_hperc'] <- 0
+
+targs <- c("Dover Sole", "Sablefish", 'Shortspine Thornyhead', 'Longspine Thornyhead', 
+  'Petrale Sole')
+wc_data_targs <- wc_data_props %>% filter(species %in% targs)
+aa <- dcast(wc_data_targs, haul_id ~ species, value.var = 'tow_hperc', fill = 0)
+plot(aa[, 2], aa[, 4]) 
+
+
+
+
+
+aa <- dcast(wc_data_props, haul_id ~ species, value.var = 'tow_hperc', mean, fill = 0)
+
+
+
+wc_data_props
+
 
 #Calculate percentage compositions for each trip?
+
+#Look at catch correlations between target species, identify spatial patterns
+
+
+wc_data_targs <- wc_data %>% filter(species %in% targs)
+
+wc_data_props <- wc_data %>% select(haul_id, species, tow_hperc)
+
+
+wc_data_props <- wc_data_props %>% group_by(haul_id) %>% mutate(nspecies = length(unique(species))) %>%
+  as.data.frame
+
+#Look for duplicate rows
+wc_data_props[which(duplicated(wc_data_props)), ]
+
+sum(duplicated(wc_data_props))
+
+
+aa <- dcast(wc_data_props, haul_id ~ species, value.var = 'tow_hperc')
+wc_data_props %>% arrange(desc(haul_id))
+
+
+#look only at hperc by tow
+test <- head(wc_data_targs, n = 30)
+test <- test %>% select(species, tow_hperc, haul_id)
+dcast(test, haul_id ~ species, value.var = "tow_hperc")
+
+
+
+
 
 
 
