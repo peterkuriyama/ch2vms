@@ -4,19 +4,22 @@
 #' while exploring effects of different cut points
 
 #' @param dat Input data
-#' @param port Port of interest. Function takes too long if done on all data
+# ' @param port Port of interest. Function takes too long if done on all data
 
 #' @export
 #' @examples
-#' clust_tows(dat = dat, port = 'ASTORIA')
+#' clust_tows(dat = dat)
 
 #
-clust_tows <- function(dat, port){
-  temp <- subset(dat, dport_desc == port)
+clust_tows <- function(dat){
+  # temp <- subset(dat, dport_desc == port)
+  
+  # print(dim(temp))
 
-  distances <- dist(temp[, c('up_lat', 'set_lat', 'trans_set_long', 'trans_up_long')],
+  distances <- dist(dat[, c('up_lat', 'set_lat', 'trans_set_long', 'trans_up_long')],
     method = 'euclidean')
-  clusts <- hclust(dist_ast, method = 'average')
+  
+  clusts <- hclust(distances, method = 'average')
   return(clusts)
 
 }

@@ -6,12 +6,10 @@
 Funtion that returns cluster output. The purpose is to allow clustering to occur only once
 while exploring effects of different cut points}
 \usage{
-clust_tows(dat, port)
+clust_tows(dat)
 }
 \arguments{
 \item{dat}{Input data}
-
-\item{port}{Port of interest. Function takes too long if done on all data}
 }
 \description{
 Cluster the data
@@ -19,6 +17,6 @@ Funtion that returns cluster output. The purpose is to allow clustering to occur
 while exploring effects of different cut points
 }
 \examples{
-clust_tows(dat = dat, port = 'ASTORIA')
+clust_tows(dat = dat)
 }
 
