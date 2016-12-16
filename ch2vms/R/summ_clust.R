@@ -15,6 +15,9 @@ summ_clust <- function(dat, clust_input, cut_point){
   #Cut the clusters
   tree <- cutree(clust_input, h = cut_point)
   dat$clust <- tree
+# browser()
+  #add in number of tows
+  dat <- dat %>% group_by(clust) %>% mutate(ntows = length(unique(haul_id)))
 
   #Summarize the data
   summ_dat <- dat %>% group_by(drvid, trip_id, dyear) %>% mutate(trip_hpounds = sum(hpounds),
