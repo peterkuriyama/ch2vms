@@ -13,7 +13,6 @@
 #' calc_delta_plot(data = wc_data, spp = 'Dover Sole', focus = 'apound')
 
 calc_delta_plot <- function(data = wc_data, spp, focus = 'apound'){
-# browser()  
 
   catch_data <- pull_catch(data = data, spp = spp, focus = focus)
 
@@ -29,7 +28,6 @@ calc_delta_plot <- function(data = wc_data, spp, focus = 'apound'){
   nonzeroes[, 2] <- log(nonzeroes[, 2])
   nonzeroes <- as.data.frame(nonzeroes)
 
-# browser()
   skew <- calc_skew(nonzeroes[, 2])
 
   return(data.frame(prop_zero = prop_zero, skew = skew))

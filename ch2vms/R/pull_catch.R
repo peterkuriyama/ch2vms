@@ -13,8 +13,9 @@
 #' compare_two_spp(data = wc_data, species1 = "Dover Sole", species2 = "Sablefish", focus = 'hperc')
 
 pull_catch <- function(data = wc_data, spp, focus = 'apound'){
+
   unq_hauls <- data %>% select(haul_id) %>% distinct
-  
+ 
   to_add <- data %>% filter(species == spp) %>% select(haul_id,
     duration, set_lat, set_long, up_lat, up_long, depth1, hpounds, apounds, tow_day,
     tow_month, tow_year)
@@ -22,7 +23,8 @@ pull_catch <- function(data = wc_data, spp, focus = 'apound'){
   for_merge <- to_add[, c(1, focus_column)]
 
   unq_hauls <- left_join(unq_hauls, for_merge, by = 'haul_id')
-  unq_hauls[, 2] <- na_to_zero(unq_hauls[, 2])
+  # unq_hauls[, 2] <- na_to_zero(unq_hauls[, 2])
+  unq_hauls[is.na(unq_hauls[, 2]), 2] <- 0
 
   return(unq_hauls)
 }
