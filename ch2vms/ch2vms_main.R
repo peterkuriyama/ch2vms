@@ -27,6 +27,10 @@ library(lubridate)
 library(reshape2)
 library(devtools)
 
+#Install multidplyr
+# devtools::install_github("hadley/multidplyr")
+library(multidplyr)
+
 #Start
 setwd("/Users/peterkuriyama/School/Research/ch2vms")
 
@@ -34,42 +38,270 @@ setwd("/Users/peterkuriyama/School/Research/ch2vms")
 install_github("peterkuriyama/ch2vms/ch2vms")
 library(ch2vms)
 
-# load_all()
-
 #--------------------------------------------------------------------------------
 #Load West Coast Logbook Data
 wc_data <- load_wc_logbook()
 wc_data <- wc_data[-grep("\\.", row.names(wc_data)), ]
+wc_data <- wc_data %>% group_by(haul_id) %>% mutate(tow_hpounds = sum(hpounds, na.rm = TRUE), 
+    tow_apounds = sum(apounds, na.rm = TRUE),
+    tow_hperc = hpounds / tow_hpounds, tow_aperc = apounds / tow_apounds, 
+    tow_diff = tow_aperc - tow_hperc) %>% as.data.frame
 
 #--------------------------------------------------------------------------------
 #Delta plots for subset of species, specified by Gillis et al. (2008)
-delta_plot()
+
+delts <- delta_plot()
+
+#Final Delta Plot
+png(width = 10, height = 8.7, file = 'figs/delta_plot.png', units = 'in', res = 200)
+ggplot(delts) + geom_point(aes(x = prop_zero, y = skew)) + 
+  geom_text(aes(x = prop_zero + .05, y = skew, label = short)) + 
+  facet_wrap(~ year) + theme_bw() + geom_hline(aes(yintercept = 0), linetype = 2)
+dev.off()
+
+# delta_plot()
+# dev.off()
 
 #Test of significance from Gillis 2008? 
 
 #--------------------------------------------------------------------------------
-#Cluster the Data
+#Cluster the Data by location at each port
+#Filter data so that only values from 2008-2013
 
+#Filter the data
+dat <- wc_data %>% filter(dport_desc == "ASTORIA" & ha_ratio >= 0.6 &
+  ha_ratio <= 1.1 & dyear >= 2008)
+dat <- arrange_tows(dat = dat) #arrange by direction
 
+#Do this on the unique tows only because data too big otherwise
+unq_tows <- dat[-which(duplicated(dat$haul_id)), ]
+# unq_tows <- arrange_tows(dat = unq_tows) #arrange by direction
 
+#Cluster the tows
+xx <- clust_tows(dat = unq_tows)
 
-#These things only done once, take a little bit of time
-dat <- wc_data %>% filter(dyear == 2011 & dport_desc == "ASTORIA" & ha_ratio >= 0.6 &
-  ha_ratio <= 1.1)
-dat <- arrange_tows(dat = dat)
-xx <- clust_tows(dat = dat)
-
-#Trevor calculations
+#Calculate cut point based on Branch et al. 2008
 #median trawl in fishery (km) converted to degrees
 #sqrt(2) * d
 
 #mean distance between successive starting positions, may be better estimate?
 calc_cut <- sqrt(2) * (median(dat$dist_slc_km) * 360) / 40075
 
-#Try different cut points
-temp <- summ_clust(dat = dat, clust_input = xx, cut_point = calc_cut)
+#Cut the clusters, can adjust the cut_point here
+unq_tows <- cut_for_merge(input_data = unq_tows, clust_input = xx, cut_point = calc_cut)
 
-# 
+dat <- left_join(dat, unq_tows, by = 'haul_id')
+dat <- summ_clust(dat)
+
+#---------------------------------------------------------------------------------------------------
+#Look at before and after changes in catch compositions for each cluster
+dat$when <- '999'
+
+#Remove 
+dat[which(dat$dyear < 2011), 'when'] <- 'before'
+dat[which(dat$dyear >= 2011), 'when'] <- 'after'
+
+# bef_aft <- dat %>% group_by(clust, when, species) %>% summarize(mean_aperc = mean(tow_aperc), 
+#   mean_hperc = mean(tow_hperc)) %>% as.data.frame
+
+# bef_aft <- bef_aft %>% filter(species %in% imp_spp)
+# bef_aft <- dcast(bef_aft, clust + species ~ when, value.var = 'mean_aperc')
+# bef_aft$diff <- bef_aft$after - bef_aft$before
+
+
+#Filter out some species
+imp_spp <- c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
+    'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
+    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish' )
+
+
+#within each cluster, was the observed change in catch percentage significant?
+#Do people fish in different clusters?
+# ggplot(bef_aft) + geom_histogram(aes(x = diff)) + facet_wrap(~ species)
+
+##Conduct permutation test to see if any clusters had significant changes 
+#in catch of certain species
+
+dat %>% group_by(clust, species) %>% mutate(dat_len = length(species),
+  full_time = length(unique(when))) %>% as.data.frame -> dat
+
+dat <- dat %>% filter(dat_len >= 10 & dat$full_time == 2)
+# only_some <- dat %>% filter(species %in% imp_spp)
+
+
+
+cluster <- create_cluster(6)
+by_clust <- dat %>% partition(clust, cluster = cluster)
+
+#Make sure right packages are loaded on each node
+cluster_library(by_clust, 'dplyr')
+cluster_library(by_clust, 'reshape2')
+cluster_library(by_clust, 'ch2vms')
+
+#Run permutation test and clock system time
+system.time({
+  res100 <-  by_clust %>% group_by(clust, species) %>% do({
+    mod <- resample_years(d_in = ., niters = 100)
+    tt <- mod[[1]]
+    return(data.frame(tt))
+  }) 
+})
+
+
+res100
+res100 %>% filter(clust == 2)
+
+collect()
+
+#Figure out which ones are statistically significant, then resample with 
+#bigger samples sizes
+
+
+
+
+
+#Something's fucked
+only_some <- only_some %>% filter(clust %in% c(10))
+
+unqs <- paste(unique(only_some$species), unique(only_some$clust), sep = 'fdsa')
+strsplit(unqs, split = 'fdsa')
+lapply(strsplit())
+
+
+rr <- only_some %>% group_by(clust, species) %>% do({
+  mod <- resample_years(d_in = ., niters = 100)
+  tt <- mod[[1]]
+  return(tt)
+})
+
+
+
+#Parallelize this with lapply 
+
+
+res100 <- res100 %>% arrange(desc(ndata)) %>% as.data.frame
+
+clust5, sablefish
+
+test <- dat %>% filter(clust == 5, species == "Sablefish")
+
+sbl_res <- resample_years(d_in = test, niters = 10)
+
+hist(sbl_res[[2]], breaks = 30)
+
+
+#---------------------------------------------------------------------------------------------------
+#How consistent are catch rates in clusters?
+
+#tsp for tow, species, percentage
+clust_rate <- dat %>% group_by(clust, species, dyear) %>% summarize(mean_tsp_aperc = mean(tow_aperc),
+  mean_tsp_hperc = mean(tow_hperc)) %>% group_by(clust, species) %>% 
+  mutate(nyears = length(unique(dyear)) ) %>% as.data.frame
+   
+clust_rate <- clust_rate %>% group_by(clust, species) %>% 
+  do({
+    mod <- lm(mean_tsp_aperc ~ dyear, data = .)
+    slope <- mod$coefficients[2]
+    names(slope) <- NULL
+    data.frame(., slope)
+  }) %>% as.data.frame 
+
+clust_rate <- clust_rate %>% filter(species %in% imp_spp)
+names(clust_rate)[7] <- 'catch_slope'
+
+#
+png(width = 9.45, height = 8.42, res = 200, units = 'in', 
+  file = 'figs/slope_catch_perc.png')
+clust_rate %>% filter(nyears == 6) %>% ggplot() + geom_point(aes(x = clust, y = catch_slope)) + 
+  facet_wrap(~ species)
+dev.off()
+
+#which clusters had the biggest changes?
+#increasing slope
+incs <- clust_rate %>% filter(catch_slope > 0.1) %>% distinct(clust)
+
+dat %>% filter(clust %in% incs$clust) %>% ggplot() + 
+  geom_segment(aes(x = -set_long, xend = -up_long, 
+  y = set_lat, yend = up_lat, colour = clust),  arrow = arrow(length = unit(0.1, 'cm')))
+
+
+#Look at cluster 
+ggplot(clust_rate) + geom_point(aes(x = clust, y = catch_slope)) + facet_wrap(~ species)
+
+#Look at distributions of slopes
+png(width = 9.45, height = 8.42, res = 200, units = 'in', 
+  file = 'figs/slope_distributions.png')
+ggplot(clust_rate) + geom_histogram(aes(x = catch_slope)) + facet_wrap(~ species) + 
+  theme_bw() + geom_vline(xintercept = 0, type = 2)
+dev.off()
+
+
+#---------------------------------------------------------------------------------------------------
+#Is there a change in the number of trips/tows per cluster over time?
+tows_clust <- dat %>% group_by(clust, dyear) %>% 
+  summarize(ntows = length(unique(haul_id))) %>% as.data.frame
+
+tows_clust <- tows_clust %>% group_by(clust) %>% do({
+  mod <- lm(ntows ~ dyear, data = .)
+  slope <- mod$coefficients[2]
+  names(slope) <- NULL
+  data.frame(., slope)
+}) %>% as.data.frame
+
+names(tows_clust)[4] <- 'vess_slope'
+tows_clust$dyear 
+
+j1 <- clust_rate %>% select(clust, species, catch_slope, nyears) %>% distinct()
+j2 <- tows_clust %>% select(clust, vess_slope) %>% distinct
+
+slopes <- left_join(j1, j2, by = 'clust')
+
+png(width = 13.1, height = 10.1, units = 'in', res = 200, file = 'figs/vess_catch_slopes.png')
+ggplot(slopes) + geom_point(aes(x = catch_slope, y = vess_slope)) + facet_wrap(~ species) + 
+  geom_vline(xintercept = 0, linetype = 'longdash') + 
+  geom_hline(yintercept = 0, linetype = 'longdash')
+dev.off()
+
+
+
+
+#---------------------------------------------------------------------------------------------------
+#Are the changes in bycatch rate before and after statistically significant?
+#
+
+#Group things by percentage bycatch
+dat$pcut <- cut(dat$clust_spp_aperc, seq(0, 1, .1))
+
+
+#Which clusters have high skews? We know from the fishery that
+#cluster catch plots?
+
+
+
+
+#Look at locations of clusters
+dat %>% filter(ntows >= 10) %>% ggplot() + geom_segment(aes(x = -set_long, xend = -up_long, 
+  y = set_lat, yend = up_lat, colour = clust),  arrow = arrow(length = unit(0.1, 'cm'))) + 
+  facet_wrap(~ pcut)
+
+
+#Look at mean percentage by species, compress time
+summ_dat$cluster %>% group_by(clust, species) %>% summarize(mean_clust_aperc = mean(clust_spp_aperc),
+  mean_clust_hperc = mean(clust_spp_hperc)) %>% filter(species == 'Dover Sole') %>% ggplot() + 
+  geom_point(aes(x = clust, y = mean_clust_aperc))
+
+#Look at clusters
+dat %>% filter(ntows >= 10 ) %>% ggplot + geom_segment(aes(x = -set_long, xend = -up_long, 
+  y = set_lat, yend = up_lat),  arrow = arrow(length = unit(0.1, 'cm'))) + 
+  facet_wrap(~ clust)
+
+
+
+
+summ_dat$cluster %>% filter(species == "Dover Sole") %>% ggplot() + 
+  geom_line(aes(x = dyear, y = clust_spp_aperc, group = clust))
+
+
 temp %>% group_by(clust) %>% mutate(ntows = length(unique(haul_id))) %>% 
   arrange(desc(ntows)) %>% as.data.frame -> temp
 
@@ -83,6 +315,10 @@ temp %>% filter(ntows >= 10 ) %>% ggplot + geom_segment(aes(x = -set_long, xend 
   y = set_lat, yend = up_lat, colour = clust),  arrow = arrow(length = unit(0.1, 'cm'))) + 
   facet_wrap(~ perc_cat)
 
+
+temp %>% filter(ntows >= 10 ) %>% ggplot + geom_segment(aes(x = -set_long, xend = -up_long, 
+  y = set_lat, yend = up_lat, colour = clust),  arrow = arrow(length = unit(0.1, 'cm'))) + 
+  facet_wrap(~ perc_cat)
 #--------------------------------------------------------------------------------
 #Old version of clustering
 
