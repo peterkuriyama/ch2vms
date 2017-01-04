@@ -3,45 +3,45 @@
 #' Function to generate values relevant for delta plots. Delta plots come from Gillis et al. 
 #' (2008)
 
-#' @param none There are no parameters
+#' @param spps Vector of species to calculate delta plot values for
 #' @export
 #' @examples
 #' delta_plot()
 
-delta_plot <- function(){
-  #Identify top species
-  wc_data %>% group_by(species) %>% summarize(apounds = sum(apounds, na.rm = TRUE)) %>%
-    arrange(desc(apounds)) %>% head(n = 30) %>% as.data.frame
-
-  #Select species of interest
-  spps <- c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
+delta_plot <- function(data = wc_data, spps = c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
     'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
-    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish' )
-  wc_data %>% filter(species %in% spps) -> of_int_data
+    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish')){
+  
+  #Define range of years given data
+  yrz <- as.integer(range(data$tow_year))
+  yrz <- yrz[1]:yrz[2]
+  
+  #Apply the delta plot function across vector of years
+  out_list <- lapply(yrz, FUN = function(x){
+    temp <- subset(wc_data, tow_year == x)
+    calc_deltas_spp(data = temp, spps = spps, focus = 'hpounds')
+  })
 
-  ##Use hpounds only
-  #hpounds of all data
-  delta_plots <- of_int_data %>% 
-    group_by(species, tow_year) %>% 
-    do(data.frame(prop_zero = calc_delta_plot(data = ., spp = unique(.[, 'species']), focus = 'hpound')[1],
-      skew = calc_delta_plot(data = ., spp = unique(.[, 'species']), focus = 'hpound')[2])) %>%
-    as.data.frame 
+  names(out_list) <- yrz
+  out_list <- ldply(out_list)
+  names(out_list)[[1]] <- 'year'
 
-  ss <- unique(delta_plots$species)
+  out_list$species <- as.character(out_list$species)
+
+  ss <- unique(out_list$species)
   abbrevs <- lapply(strsplit(ss, " "), function(x) sapply(x, FUN = function(y) paste0(substr(y, 1, 1), collapse = '')))
 
   ss_names <- ldply(lapply(abbrevs, FUN = function(x) paste0(x, collapse = '')))
   ss_names <- data.frame(species = ss, abbrev = ss_names[, 1])
   ss_names$species <- as.character(ss_names$species)
   ss_names$abbrev <- as.character(ss_names$abbrev)
+  ss_names <- ss_names[order(ss_names$species), ]
+
   ss_names$short <- c("Arr", 'Bnk', 'Chl', 'Drk', 'Dvr', 'Lng', 'Lon', 
     'POP', 'Pet', 'Sbl', 'Shr', 'Wid', 'Ylt')
 
-  dps <- left_join(delta_plots, ss_names, by = 'species')
+  dps <- left_join(out_list, ss_names, by = 'species')
 
-  #Final Delta Plot
-  ggplot(dps) + geom_text(aes(x = prop_zero + .05, y = skew, label = short)) + 
-    geom_point(aes(x = prop_zero, y = skew)) + 
-    facet_wrap(~ tow_year) + theme_bw() + geom_hline(aes(yintercept = 0), linetype = 2)
+  return(dps)
 }
 
