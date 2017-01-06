@@ -6,10 +6,19 @@
 Function to generate values relevant for delta plots. Delta plots come from Gillis et al. 
 (2008)}
 \usage{
-delta_plot()
+delta_plot(data = wc_data, spps = c("Dover Sole", "Arrowtooth Flounder",
+  "Sablefish", "Petrale Sole", "Longspine Thornyhead", "Shortspine Thornyhead",
+  "Chilipepper Rockfish", "Lingcod", "Yellowtail Rockfish",
+  "Darkblotched Rockfish", "Pacific Ocean Perch", "Bank Rockfish",
+  "Widow Rockfish"), year_col = "tow_year")
 }
 \arguments{
-\item{none}{There are no parameters}
+\item{data}{Data frame used to calculate delta plots}
+
+\item{spps}{Vector of species to calculate delta plot values for}
+
+\item{year_col}{Name of column containing year information, defaults to tow_year which
+corresponds to wc_data}
 }
 \description{
 Create delta plots

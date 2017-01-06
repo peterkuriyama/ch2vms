@@ -3,14 +3,18 @@
 #' Function to generate values relevant for delta plots. Delta plots come from Gillis et al. 
 #' (2008)
 
+#' @param data Data frame used to calculate delta plots
 #' @param spps Vector of species to calculate delta plot values for
+#' @param year_col Name of column containing year information, defaults to tow_year which
+#' corresponds to wc_data
 #' @export
 #' @examples
 #' delta_plot()
 
 delta_plot <- function(data = wc_data, spps = c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
     'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
-    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish')){
+    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish'), 
+    year_col = 'tow_year'){
   
   #Define range of years given data
   yrz <- as.integer(range(data$tow_year))
