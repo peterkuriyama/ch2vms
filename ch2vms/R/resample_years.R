@@ -52,5 +52,8 @@ resample_years <- function(d_in, niters, seed = 1){
   gthan <- sum(diffs >= emp$diff) / length(diffs)
   lthan <- sum(diffs < emp$diff) / length(diffs)
 
-  return(data.frame(greater = gthan, less = lthan, ndata = nrow(d_in)))
+  outs <- list(pval = data.frame(emp = emp$diff, greater = gthan, less = lthan, ndata = nrow(d_in)), 
+               diffs = diffs)
+
+  return(outs)
 }

@@ -11,7 +11,7 @@
 #' @examples
 #' delta_plot()
 
-delta_plot <- function(data = wc_data, spps = tolower(c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
+delta_plot <- function(data, spps = tolower(c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
     'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
     'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish')), 
     year_col = 'tow_year'){

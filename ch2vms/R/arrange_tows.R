@@ -10,7 +10,6 @@
 #' @examples
 #' arrange_tows(dat = part_wc_data, direction = 'NW')
 
-
 #arrange tow directions so they are all oriented in the same direction
 #Dat is input data frame
 # direction is direction of all tows
