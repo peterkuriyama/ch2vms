@@ -6,11 +6,11 @@
 Function to generate values relevant for delta plots. Delta plots come from Gillis et al. 
 (2008)}
 \usage{
-delta_plot(data = wc_data, spps = c("Dover Sole", "Arrowtooth Flounder",
+delta_plot(data, spps = tolower(c("Dover Sole", "Arrowtooth Flounder",
   "Sablefish", "Petrale Sole", "Longspine Thornyhead", "Shortspine Thornyhead",
   "Chilipepper Rockfish", "Lingcod", "Yellowtail Rockfish",
   "Darkblotched Rockfish", "Pacific Ocean Perch", "Bank Rockfish",
-  "Widow Rockfish"), year_col = "tow_year")
+  "Widow Rockfish")), year_col = "tow_year")
 }
 \arguments{
 \item{data}{Data frame used to calculate delta plots}

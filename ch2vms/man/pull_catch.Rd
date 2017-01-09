@@ -5,7 +5,7 @@
 \title{Find catch from unique tows
 Function to count number of tows in bins. Uses ggplot stat_bin2d functions.}
 \usage{
-pull_catch(data = wc_data, spp, focus = "apound")
+pull_catch(data, spp, focus = "apound")
 }
 \arguments{
 \item{data}{Input data, defaults to wc_data}

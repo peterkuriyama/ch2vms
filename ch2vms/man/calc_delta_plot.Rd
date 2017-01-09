@@ -7,7 +7,7 @@ Delta plots come from Gillis et al. (2008) paper. Used to compare the proportion
 skew of the catch distributions. Targeted species have skewed distributions. Function relies on
 pull_catch and calc_skew functions.}
 \usage{
-calc_delta_plot(data = wc_data, spp, focus = "apound")
+calc_delta_plot(data, spp, focus = "apound")
 }
 \arguments{
 \item{data}{Input data, defaults to wc_data}
