@@ -12,7 +12,8 @@
 
 #' compare_two_spp(data = wc_data, species1 = "Dover Sole", species2 = "Sablefish", focus = 'hperc')
 
-pull_catch <- function(data = wc_data, spp, focus = 'apound'){
+pull_catch <- function(data, spp, focus = 'apound'){
+# print('poop')
 
   unq_hauls <- data %>% select(haul_id) %>% distinct
  

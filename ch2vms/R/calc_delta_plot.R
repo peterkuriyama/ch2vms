@@ -12,7 +12,7 @@
 #' @examples
 #' calc_delta_plot(data = wc_data, spp = 'Dover Sole', focus = 'apound')
 
-calc_delta_plot <- function(data = wc_data, spp, focus = 'apound'){
+calc_delta_plot <- function(data, spp, focus = 'apound'){
 
   catch_data <- pull_catch(data = data, spp = spp, focus = focus)
 
