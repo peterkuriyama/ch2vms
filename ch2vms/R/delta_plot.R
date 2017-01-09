@@ -11,18 +11,18 @@
 #' @examples
 #' delta_plot()
 
-delta_plot <- function(data = wc_data, spps = c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
+delta_plot <- function(data = wc_data, spps = tolower(c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
     'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
-    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish'), 
+    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish')), 
     year_col = 'tow_year'){
-  
+
   #Define range of years given data
-  yrz <- as.integer(range(data$tow_year))
+  yrz <- as.integer(range(data[, year_col]))
   yrz <- yrz[1]:yrz[2]
   
   #Apply the delta plot function across vector of years
   out_list <- lapply(yrz, FUN = function(x){
-    temp <- subset(wc_data, tow_year == x)
+    temp <- subset(data, tow_year == x)
     calc_deltas_spp(data = temp, spps = spps, focus = 'hpounds')
   })
 
