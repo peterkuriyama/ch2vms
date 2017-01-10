@@ -22,7 +22,9 @@ delta_plot <- function(data, spps = tolower(c('Dover Sole', 'Arrowtooth Flounder
   
   #Apply the delta plot function across vector of years
   out_list <- lapply(yrz, FUN = function(x){
-    temp <- subset(data, tow_year == x)
+    # temp <- subset(data, tow_year == x)
+    temp <- data[which(data[, year_col] == x), ]
+
     calc_deltas_spp(data = temp, spps = spps, focus = 'hpounds')
   })
 
