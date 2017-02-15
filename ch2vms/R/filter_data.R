@@ -14,6 +14,7 @@ filter_data <- function(input, shape_dir = 'all_data/wc_shapefile',
   file_nm = 'Strata_Final_dissAreaType', 
   proj = '+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0'){
 
+  
   #Read in shapefile
   shape <- readOGR(shape_dir, file_nm)
   #Make sure projections are consistent
@@ -28,7 +29,7 @@ filter_data <- function(input, shape_dir = 'all_data/wc_shapefile',
 
   #Filter the data based on the shapefile
   start_time <- Sys.time()
-  overlaps <- over(vms_shape, as(wc_shape, 'SpatialPolygons'))
+  overlaps <- over(pts_proj, as(shape, 'SpatialPolygons'))
   end_time <- Sys.time()
   print(end_time - start_time)
 
