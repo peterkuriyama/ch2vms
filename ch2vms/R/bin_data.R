@@ -26,7 +26,7 @@ bin_data <- function(data, x_col = 'trans_lon', y_col = 'trans_lat', group = 'ye
   #Add in unique group category
   unq_grp <- data.frame(year = unique(data[, group]), group = 1:length(unique(data[, group])))
   binned <- inner_join(binned, unq_grp, by = 'group')
-  binned$year <- as.character(binned$year)
+  binned$year <- as.numeric(as.character(binned$year))
 
   return(binned)
 }
