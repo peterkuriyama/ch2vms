@@ -29,15 +29,116 @@ filt_data <- wc %>% filter(speed >= 3 & speed <= 5)
 filt_points <- filter_data(input = filt_data)
 
 #Extract the points
-pts <- filt_points[[2]]
+wc_pts <- filt_points[[2]]
 
 #Plot stuff
 #Use this to check that the filtering is working OK
 plot(filt_points[[1]])
-points(x = pts$lon, y = pts$lat, col = 'red', pch = '.')
+points(x = wc_pts$lon, y = wc_pts$lat, col = 'red', pch = '.')
 
 
 #---------------------------------------------------------------------------------
+#Bin the WC pts
+#Make sure to only keep those with ov value of 2
+wc_pts <- wc_pts %>% filter(ov == 2)
+
+wc_binned <- bin_data(data = wc_pts, x_col = "lon", y_col = "lat")
+
+ggplot(data = wc_binned) + geom_tile(aes(x = x, y = y, fill = count)) + 
+  scale_fill_gradient2(low = 'blue', high = 'red') + facet_wrap(~ year) + theme_bw()
+
+#Plots for comparison
+wc_binned$when <- '999'
+wc_binned[wc_binned$year < 2011, 'when'] <- "before"
+wc_binned[wc_binned$year >= 2011, 'when'] <- "after"
+
+#Calculate percentage of annual fishing effort in each location
+
+
+#---------------------------------------------------------------------------------
+#Fit linear model to see which ones had the largest slope changes
+#Check to see that all years had more than one year
+wc_binned <- wc_binned %>% group_by(unq) %>% mutate(nyears = length(year)) %>% as.data.frame
+
+wc_binned <- wc_binned %>% arrange(year) 
+
+wc_binned %>% filter(nyears > 1) %>%
+  group_by(unq) %>% 
+  do({
+    mod <- lm(count ~ year, data = .)
+    slope <- mod$coefficients[2]
+    names(slope) <- NULL
+    data.frame(., slope)
+}) %>% as.data.frame -> wc_slopes
+
+
+wc_slopes <- wc_slopes %>% group_by(unq) %>% mutate(mean = mean(count), stdev = sd(count),
+  cv = stdev / mean) %>% as.data.frame 
+unqs <- wc_slopes %>% group_by(unq) %>% summarize(slope = unique(slope), mean = unique(mean),
+  cv = unique(cv)) %>% as.data.frame
+hist(unqs$cv, breaks = 30)
+
+
+#---------------------------------------------------------------------------------
+#Final Plots
+
+#Aggregated number of assumed fishing locations
+wc_slopes %>% group_by(year) %>% summarize(count = sum(count)) %>% 
+  ggplot() + geom_line(aes(x = year, y = count)) + 
+  geom_point(aes(x = year, y = count)) + theme_bw()
+#2012 is effed up
+
+#Aggregated number of assumed fishing locations
+
+
+
+ggplot(wc_top25) + geom_point(aes(x = mean, y = stdev, col = slope))
+
+
+
+
+wc_top25 <- wc_slopes %>% filter(unq %in% bef_top25)
+
+
+
+
+ggplot(wc_top25) + geom_point()
+
+
+#Check that this makes sense
+wc_top25 %>% filter(unq == '12 112') %>% ggplot(aes(x = year, y = count)) + geom_point() + 
+  geom_line()
+
+
+
+ggplot
+
+
+
+#---------------------------------------------------------------------------------
+#Find the most highly visited
+#Most visited locations before
+bef_most <- wc_binned %>% filter(when == 'before') %>% group_by(unq) %>% 
+  summarize(count_avg = mean(count)) %>% arrange(desc(count_avg)) %>% as.data.frame
+qs <- quantile(bef_most$count_avg)
+
+#look at top 25% most fished locations
+bef_top25 <- bef_most[which(bef_most$count_avg >= qs[4]), 'unq']
+
+wc_top25 <- wc_binned %>% filter(unq %in% bef_top25)
+
+ggplot(wc_top25) + geom_line(aes(x = year, y = count, group = unq, col = unq))
+
+
+
+#Do a linear model to see which ones had the highest increase or decrease
+
+
+
+wc_binned %>% group_by(x, y, year) %>% summarize()
+
+
+
 
 
 library(rworldmap)
