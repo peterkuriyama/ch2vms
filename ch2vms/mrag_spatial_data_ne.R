@@ -89,7 +89,7 @@ ne_slopes$itq_diff_quants <- factor(nmz)
 
 #Rename ne_slopes to be ne_data
 ne <- ne_slopes
-rm(ne)
+rm(ne_slopes)
 
 
 
