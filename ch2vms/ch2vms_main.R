@@ -20,12 +20,16 @@
 # registerDoParallel(cl)
 
 #--------------------------------------------------------------------------------
+
 library(ggplot2)
+library(devtools)
 library(plyr)
 library(dplyr)
-library(lubridate)
 library(reshape2)
-library(devtools)
+library(maps)
+library(rworldmap)
+library(sp)
+library(rgdal)
 
 #Install multidplyr
 # devtools::install_github("hadley/multidplyr")
@@ -35,8 +39,33 @@ library(multidplyr)
 setwd("/Users/peterkuriyama/School/Research/ch2vms")
 
 #Load package
-install_github("peterkuriyama/ch2vms/ch2vms")
+devtools::install_github("peterkuriyama/ch2vms/ch2vms")
 library(ch2vms)
+#Pull 
+# devtools::load_all()
+
+#--------------------------------------------------------------------------------
+#MRAG Spatial Analysis
+load('output/wc_processed_binned.Rdata')
+load('output/ne_processed_binned.Rdata')
+
+#Specify which data to use
+the_data <- ne 
+source("mrag_spatial.R")
+
+the_data <- wc
+
+#--------------------------------------------------------------------------------
+#Calc proportion of increases and decreases
+diffs <- ne %>% group_by(unq) %>% summarize(diff = unique(mn_itq_diff))
+sum(diffs$diff > 0) / nrow(diffs)
+sum(diffs$diff <= 0) / nrow(diffs)
+
+
+diffs <- wc %>% group_by(unq) %>% summarize(diff = unique(mn_itq_diff))
+sum(diffs$diff > 0) / nrow(diffs)
+sum(diffs$diff <= 0) / nrow(diffs)
+
 
 #--------------------------------------------------------------------------------
 #Load West Coast Logbook Data
@@ -49,8 +78,7 @@ wc_data <- wc_data %>% group_by(haul_id) %>% mutate(tow_hpounds = sum(hpounds, n
 
 #--------------------------------------------------------------------------------
 #Delta plots for subset of species, specified by Gillis et al. (2008)
-
-delts <- delta_plot()
+delts <- delta_plot(data = wc_data)
 
 #Final Delta Plot
 png(width = 10, height = 8.7, file = 'figs/delta_plot.png', units = 'in', res = 200)
@@ -58,9 +86,6 @@ ggplot(delts) + geom_point(aes(x = prop_zero, y = skew)) +
   geom_text(aes(x = prop_zero + .05, y = skew, label = short)) + 
   facet_wrap(~ year) + theme_bw() + geom_hline(aes(yintercept = 0), linetype = 2)
 dev.off()
-
-# delta_plot()
-# dev.off()
 
 #Test of significance from Gillis 2008? 
 
@@ -77,7 +102,7 @@ dat <- arrange_tows(dat = dat) #arrange by direction
 unq_tows <- dat[-which(duplicated(dat$haul_id)), ]
 # unq_tows <- arrange_tows(dat = unq_tows) #arrange by direction
 
-#Cluster the tows
+#Cluster the tows, this part takes a long time
 xx <- clust_tows(dat = unq_tows)
 
 #Calculate cut point based on Branch et al. 2008
@@ -110,48 +135,53 @@ dat[which(dat$dyear >= 2011), 'when'] <- 'after'
 
 
 #Filter out some species
-imp_spp <- c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
+imp_spp <- tolower(c('Dover Sole', 'Arrowtooth Flounder', 'Sablefish', 'Petrale Sole', 'Longspine Thornyhead',
     'Shortspine Thornyhead', 'Chilipepper Rockfish', 'Lingcod', 'Yellowtail Rockfish', 
-    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish' )
+    'Darkblotched Rockfish', 'Pacific Ocean Perch', 'Bank Rockfish', 'Widow Rockfish' ))
+
+source('perm_test.R') #Not a function
 
 
-#within each cluster, was the observed change in catch percentage significant?
-#Do people fish in different clusters?
-# ggplot(bef_aft) + geom_histogram(aes(x = diff)) + facet_wrap(~ species)
+#Values are what percent of permutations are greater or less than the empricial value,
+#also how many values were there for species X in cluster Y?
 
-##Conduct permutation test to see if any clusters had significant changes 
-#in catch of certain species
+#Load the file instead of rerunning the permutation test. 
+load('output/res100.Rdata')
 
-dat %>% group_by(clust, species) %>% mutate(dat_len = length(species),
-  full_time = length(unique(when))) %>% as.data.frame -> dat
+#Filter out significant ones
+sigs <- res100 %>% filter(greater >= 0.95 | greater <= 0.05) 
+sigs %>% group_by(clust) %>% summarize(nvals = length(unique(species))) %>% as.data.frame %>%
+  arrange(desc(nvals)) %>% filter(nvals >= 5) %>% select(clust) -> sig_clusts
 
-dat <- dat %>% filter(dat_len >= 10 & dat$full_time == 2)
-# only_some <- dat %>% filter(species %in% imp_spp)
+#Look at all the clusters that had significant changes
+dat %>% filter(clust %in% sig_clusts$clust) -> sig_clusts
 
+#
+sigs %>% arrange(desc(ndata))
 
-
-cluster <- create_cluster(6)
-by_clust <- dat %>% partition(clust, cluster = cluster)
-
-#Make sure right packages are loaded on each node
-cluster_library(by_clust, 'dplyr')
-cluster_library(by_clust, 'reshape2')
-cluster_library(by_clust, 'ch2vms')
-
-#Run permutation test and clock system time
-system.time({
-  res100 <-  by_clust %>% group_by(clust, species) %>% do({
-    mod <- resample_years(d_in = ., niters = 100)
-    tt <- mod[[1]]
-    return(data.frame(tt))
-  }) 
-})
+#Check one of the clusters permutations
+ccheck <- dat %>% filter(clust == 41)
+ccheck %>% filter(species == "Dover Sole")
+ccheck %>% filter(species == "Petrale Sole")
 
 
-res100
-res100 %>% filter(clust == 2)
+ccheck %>% filter(species == 'Dover Sole') %>% ggplot() + 
+  geom_histogram(aes(x = hpounds))
 
-collect()
+ggplot(ccheck)
+
+
+
+hist(sigs$ndata, breaks  = 30)
+
+ggplot(sigs) + geom_histogram(aes(x = emp)) + facet_wrap(~ species) + 
+
+
+geom_bar(stat = 'identity', aes(x = factor(species), y = clust_hperc)) +
+     facet_grid(~ clust) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
 
 #Figure out which ones are statistically significant, then resample with 
 #bigger samples sizes
@@ -165,7 +195,10 @@ only_some <- only_some %>% filter(clust %in% c(10))
 
 unqs <- paste(unique(only_some$species), unique(only_some$clust), sep = 'fdsa')
 strsplit(unqs, split = 'fdsa')
+
+
 lapply(strsplit())
+
 
 
 rr <- only_some %>% group_by(clust, species) %>% do({
