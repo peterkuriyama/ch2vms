@@ -10,7 +10,7 @@
 #' bin_data(data = )
 
 bin_data <- function(data, x_col = 'trans_lon', y_col = 'trans_lat', group = 'year',
-  grid_size = c(0.0909, 0.11)){
+  grid_size = c(0.0909, 0.11), group_vec = 2001:2014){
 
   bin <- ggplot(data, aes_string(x = x_col, y = y_col, group = group)) + 
     stat_bin2d(binwidth = grid_size)
@@ -24,14 +24,9 @@ bin_data <- function(data, x_col = 'trans_lon', y_col = 'trans_lat', group = 'ye
     as.data.frame -> binned
 
   #Add in unique group category
-  unq_grp <- data.frame(year = unique(data[, group]), group = 1:length(unique(data[, group])))
-  binned <- inner_join(binned, unq_grp, by = 'group')
-  binned$year <- as.numeric(as.character(binned$year))
+  unq_grp <- data.frame(group = unique(binned$group), year = group_vec)
+  binned <- left_join(binned, unq_grp, by = 'group')
 
   return(binned)
 }
-
-
-
-
 
